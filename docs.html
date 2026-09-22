@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TAP — spec</title>
+<meta name="description" content="The settlement order, who holds the funds at each step, what happens when the order fails after the asset is sold, and what is not verifiable today.">
+<link rel="icon" href="/assets/favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="/assets/favicon-180.png">
+<style>
+@font-face{font-family:Inter;src:url(/assets/inter.woff2) format('woff2-variations');font-weight:100 900;font-display:swap}
+@font-face{font-family:Mono;src:url(/assets/mono.woff2) format('woff2');font-weight:400 600;font-display:swap}
+:root{--ground:#0b1119;--text:#b7c4d6;--head:#fff;--dim:#71809a;
+  --line:rgba(255,255,255,.115);--hair:rgba(255,255,255,.062);--ice:#9ed3ea;--warn:#e8a98c}
+*{box-sizing:border-box}
+html{overflow-x:hidden;scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;overflow-x:clip;background:var(--ground);color:var(--text);
+  font:400 14.5px/1.76 Inter,system-ui,-apple-system,sans-serif;letter-spacing:-.003em;
+  -webkit-font-smoothing:antialiased}
+#range{position:fixed;inset:0;width:100%;height:100%;z-index:-3;display:block;pointer-events:none}
+.vig{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(120% 80% at 50% 6%,rgba(11,17,25,.2) 20%,rgba(11,17,25,.86) 74%,rgba(11,17,25,.97) 100%)}
+h1,h2,h3{color:var(--head);margin:0;font-weight:800;letter-spacing:-.032em}
+h1{font-size:clamp(28px,4.4vw,42px);line-height:1.06;letter-spacing:-.042em}
+h2{font-size:clamp(19px,2.4vw,24px);line-height:1.24;font-weight:750;margin:0 0 6px}
+h3{font-size:14.5px;font-weight:700;margin:24px 0 6px;color:var(--head)}
+p{margin:0 0 14px;max-width:70ch}
+a{color:var(--ice)}
+b,strong{color:var(--head);font-weight:650}
+.mono{font-family:Mono,ui-monospace,Menlo,monospace}
+.dim{color:var(--dim)}
+.wrap{max-width:780px;margin:0 auto;padding:60px 34px 90px}
+.back{font-family:Mono,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);text-decoration:none;display:inline-block;margin-bottom:34px}
+.back:hover{color:var(--head)}
+.meta{display:flex;gap:12px;flex-wrap:wrap;font-family:Mono,monospace;font-size:11px;
+  letter-spacing:.1em;color:var(--dim);margin-top:14px}
+.toc{margin:34px 0 0;padding:20px 0 0;border-top:1px solid var(--line);
+  font-family:Mono,monospace;font-size:12px;line-height:2.1}
+.toc a{color:var(--dim);text-decoration:none;margin-right:18px;white-space:nowrap}
+.toc a:hover{color:var(--head)}
+.sec{padding:46px 0 0;border-top:1px solid var(--line);margin-top:46px;scroll-margin-top:20px}
+.eb{font-family:Mono,monospace;font-size:10.5px;letter-spacing:.19em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 12px}
+.eb em{font-style:normal;color:var(--ice)}
+.cl{display:grid;grid-template-columns:52px minmax(0,1fr);gap:0 16px;padding:15px 0;
+  border-bottom:1px solid var(--hair)}
+.cl:last-child{border-bottom:0}
+.cl .n{font-family:Mono,monospace;font-size:11.5px;color:var(--ice);padding-top:3px}
+.cl .b{min-width:0}
+.cl .b b{display:block;margin-bottom:3px}
+.tbl{width:100%;border-collapse:collapse;margin:20px 0 6px;font-size:13.5px}
+.tbl th{text-align:left;font-family:Mono,monospace;font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);font-weight:500;padding:0 16px 9px 0;
+  border-bottom:1px solid var(--line)}
+.tbl td{padding:13px 16px 13px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+.tbl td:first-child{color:var(--head);font-weight:650}
+.tbl .num{font-family:Mono,monospace;color:var(--ice)}
+pre{background:rgba(255,255,255,.035);border:1px solid var(--hair);border-radius:11px;
+  padding:15px 17px;overflow-x:auto;font-family:Mono,monospace;font-size:12.5px;line-height:1.7;
+  color:var(--text);margin:16px 0}
+pre b{color:var(--ice);font-weight:400}
+code{font-family:Mono,monospace;font-size:12.8px;background:rgba(255,255,255,.055);
+  padding:2px 6px;border-radius:5px;color:var(--head)}
+pre code{background:none;padding:0}
+.note{border-left:2px solid var(--ice);padding:2px 0 2px 16px;margin:18px 0;font-size:13.5px;
+  max-width:68ch}
+.note.warn{border-left-color:var(--warn)}
+.note b{font-family:Mono,monospace;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;
+  display:block;margin-bottom:3px;color:var(--ice)}
+.note.warn b{color:var(--warn)}
+.try{border:0;border-radius:8px;cursor:pointer;padding:8px 15px;font:750 11.5px Inter,sans-serif;
+  color:#0b1119;background:var(--head);white-space:nowrap}
+.try:hover{transform:translateY(-1px)}
+.try[disabled]{opacity:.45;cursor:not-allowed}
+.res{font-family:Mono,monospace;font-size:11.5px;color:var(--dim);margin-top:8px;
+  overflow-wrap:anywhere;display:block}
+ul{margin:0 0 14px;padding-left:19px;max-width:70ch}
+li{margin-bottom:7px}
+@media(max-width:640px){.wrap{padding:38px 20px 64px}.cl{grid-template-columns:minmax(0,1fr);gap:4px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<canvas id="range" aria-hidden="true"></canvas>
+<div class="vig" aria-hidden="true"></div>
+
+<div class="wrap">
+<a class="back" href="/">← TAP</a>
+
+<h1>The settlement spec</h1>
+<p style="margin-top:14px;font-size:16px;max-width:62ch">What happens between the tap and the
+merchant being paid, who is holding the money at each step, and what happens when it breaks
+after the asset has already been sold.</p>
+<div class="meta"><span>8 sections</span><span>·</span><span>~9 min</span><span>·</span>
+  <span>published before launch, so it can be held against what ships</span></div>
+
+<nav class="toc">
+  <a href="#params">00 Parameters</a><a href="#order">01 The order</a>
+  <a href="#custody">02 Custody</a><a href="#fail">03 When it fails midway</a>
+  <a href="#band">04 The band</a><a href="#refunds">05 Refunds</a>
+  <a href="#readers">06 Readers</a><a href="#limits">07 Limits</a>
+  <a href="#words">08 Vocabulary</a>
+</nav>
+
+<section class="sec" id="params">
+  <p class="eb"><em>00</em> &nbsp;—&nbsp; Parameters</p>
+  <h2>Every number this product runs on, in one table.</h2>
+  <p>All of these are set by us and all of them are published before launch. Where a figure is a
+    commitment rather than a measurement, the table says so.</p>
+  <table class="tbl">
+    <thead><tr><th>Parameter</th><th>Value</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td>TAP fee</td><td class="num">0.90% of the purchase</td><td>Commitment</td></tr>
+      <tr><td>Price band</td><td class="num">± 0.75%</td><td>Commitment</td></tr>
+      <tr><td>Per-transaction ceiling</td><td class="num">$2,000</td><td>Commitment · first float</td></tr>
+      <tr><td>Authorisation budget</td><td class="num">2.00 s</td><td>Imposed by the card networks</td></tr>
+      <tr><td>Float size</td><td class="num">—</td><td>No float is deployed. A dash is not zero.</td></tr>
+      <tr><td>Purchases settled</td><td class="num">—</td><td>Nothing has settled. See section 07.</td></tr>
+      <tr><td>Spread</td><td class="num">—</td><td>The venue's, quoted at the moment of sale</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><b>Note 1</b>The fee, the band and the ceiling are the three numbers that
+    decide whether this product is worth using, and all three are the sort of number that
+    normally appears after launch, in a help centre, once nobody is checking. They are here
+    instead.</div>
+</section>
+
+<section class="sec" id="order">
+  <p class="eb"><em>01</em> &nbsp;—&nbsp; The order</p>
+  <h2>The settlement order, clause by clause.</h2>
+
+  <div class="cl"><span class="n">01.1</span><span class="b"><b>T+0.000 — the terminal asks</b>
+    The merchant's terminal requests an authorisation from the card issuer for the purchase
+    amount in the merchant's currency. Nothing about TAP is visible to the merchant at any point
+    in this list.</span></div>
+  <div class="cl"><span class="n">01.2</span><span class="b"><b>T+0.350 — the ceiling is checked</b>
+    Before any capital moves: the purchase is compared against the per-transaction ceiling and
+    against your balance in the asset first in your priority order. A failure here is a decline
+    at the till and nothing else happens. This step exists so that a failure is boring.</span></div>
+  <div class="cl"><span class="n">01.3</span><span class="b"><b>T+0.400 — the float fronts it</b>
+    TAP's own capital covers the purchase plus the fee, and the authorisation is returned to the
+    terminal. From this instant TAP holds price exposure to your asset that it did not choose and
+    does not want.</span></div>
+  <div class="cl"><span class="n">01.4</span><span class="b"><b>T+1.200 — the sale</b>
+    A market sell for exactly the amount needed — purchase plus fee — of one asset. Not a round
+    number, not a buffer, not a top-up of a spending balance.</span></div>
+  <div class="cl"><span class="n">01.5</span><span class="b"><b>T+1.900 — settlement</b>
+    Proceeds return to the float, closing the position opened at 01.3. The band in section 04
+    decides what happens if the price moved while this was in flight.</span></div>
+  <div class="cl"><span class="n">01.6</span><span class="b"><b>T+2.000 — the receipt</b>
+    Written with the asset, the units, the execution price, the spread, the fee and the amount
+    the merchant was paid. Written whether or not anyone reads it.</span></div>
+  <div class="cl"><span class="n">01.7</span><span class="b"><b>Later — the merchant is paid</b>
+    On the card networks' own schedule, exactly as for any other card. TAP does not sit between
+    the issuer and the merchant and cannot speed this up or slow it down.</span></div>
+</section>
+
+<section class="sec" id="custody">
+  <p class="eb"><em>02</em> &nbsp;—&nbsp; Custody</p>
+  <h2>Who is holding the money at each step.</h2>
+  <p>This is the question a serious reader asks first and the one most products in this category
+    never answer. Read the middle column as "if everything stopped right now, whose balance sheet
+    is this on".</p>
+  <table class="tbl">
+    <thead><tr><th>At</th><th>Who holds it</th><th>Your exposure</th></tr></thead>
+    <tbody>
+      <tr><td>Before the tap</td><td>You. Your asset, your wallet, your keys.</td><td>Yours, unchanged.</td></tr>
+      <tr><td>01.3 → 01.4</td><td>TAP's float is out of pocket. Your asset is still yours.</td><td>Still yours — but committed to a sale that is about to run.</td></tr>
+      <tr><td>01.4 → 01.5</td><td>In flight at the venue.</td><td>The band applies. TAP carries the difference inside it.</td></tr>
+      <tr><td>After 01.5</td><td>TAP's float is whole. The merchant is owed by the card network.</td><td>Ended. You hold one less slice of one asset.</td></tr>
+      <tr><td>After a reversal</td><td>Everything returns to where it was at 01.2.</td><td>None. The sale did not happen.</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><b>Note 2</b>TAP never holds your assets as a custodian between purchases.
+    The only window in which our balance sheet and your position are entangled is the 1.5 seconds
+    between 01.3 and 01.5, and that entanglement runs in your favour: we are the ones exposed.</div>
+</section>
+
+<section class="sec" id="fail">
+  <p class="eb"><em>03</em> &nbsp;—&nbsp; When it fails midway</p>
+  <h2>The order fails after the asset is already sold.</h2>
+  <p>This is the honest heart of the product and the case every competitor's page stops short
+    of. The asset is gone, the merchant has not been paid, and somebody has to be worse off.</p>
+  <div class="cl"><span class="n">03.1</span><span class="b"><b>The authorisation is reversed after the sale settles</b>
+    You are left holding stablecoin where an asset used to be. TAP returns the full proceeds to
+    you and absorbs the fee — you pay nothing for a transaction that did not complete. What TAP
+    cannot do is put your position back, and we will not claim to. That is a real cost and it
+    lands on you.</span></div>
+  <div class="cl"><span class="n">03.2</span><span class="b"><b>The sale fails but the authorisation stands</b>
+    TAP's float has already paid. We carry it and retry against the next asset in your priority
+    order. If every asset fails, the float carries the purchase and we come to you for it — and
+    the receipt says exactly that rather than describing it as a "pending settlement".</span></div>
+  <div class="cl"><span class="n">03.3</span><span class="b"><b>The venue is down at 01.4</b>
+    The authorisation from 01.3 is reversed before any sale is attempted. You see a decline. This
+    is the good failure: it costs a checkout, not a position.</span></div>
+  <div class="cl"><span class="n">03.4</span><span class="b"><b>TAP is down</b>
+    The card declines across the board and the status page says so. It does not silently fall
+    back to a slower path, a different asset, or a balance you did not agree to spend.</span></div>
+  <div class="note warn"><b>The rule</b>Where a failure has to cost somebody, the order is: TAP's
+    fee first, then TAP's float, then you — and never you silently.</div>
+</section>
+
+<section class="sec" id="band">
+  <p class="eb"><em>04</em> &nbsp;—&nbsp; The band</p>
+  <h2>± 0.75%, worked through.</h2>
+  <p>Between 01.3 and 01.5 the price can move. The band is the amount of that move TAP absorbs
+    rather than passing to you or reversing the transaction over.</p>
+<pre>purchase        $200.00
+fee   0.90%     $  1.80
+to raise        $201.80
+
+<b>inside the band</b>
+price at 01.3   $100.00   ->  2.018000 units committed
+price at 01.5   $ 99.40   ->  move -0.60%, inside 0.75%
+outcome         TAP absorbs $1.21. You are charged $201.80. Nothing else changes.
+
+<b>outside the band</b>
+price at 01.5   $ 98.50   ->  move -1.50%, outside 0.75%
+outcome         authorisation reversed at the till, nothing sold, no fee taken</pre>
+  <p>The band is symmetric. When the price moves in our favour by less than 0.75% TAP keeps the
+    difference — which is the only reason a band this tight is affordable to offer at all, and
+    saying so is cheaper than being caught not saying it.</p>
+</section>
+
+<section class="sec" id="refunds">
+  <p class="eb"><em>05</em> &nbsp;—&nbsp; Refunds</p>
+  <h2>A refund is not a time machine.</h2>
+  <p>A merchant refund arrives on the card rails, days later, as money. It cannot arrive as the
+    asset you sold, because nobody in the chain is holding that asset any more — you sold it, at
+    a price, on a date.</p>
+  <p>So a refund credits stablecoin. If you sold tokenised NVDA on Tuesday and the merchant
+    refunds you on Friday, you get dollars back, not your NVDA, and if NVDA moved in between then
+    that difference is real and it is yours.</p>
+  <div class="note warn"><b>Note 3</b>TAP will not offer to re-buy the asset for you at the
+    refund. That would be TAP taking a position on your behalf with your money on a timescale you
+    did not choose, which is a different product and a worse one.</div>
+</section>
+
+<section class="sec" id="readers">
+  <p class="eb"><em>06</em> &nbsp;—&nbsp; Readers</p>
+  <h2>The endpoint this site runs on, with a button that calls it.</h2>
+  <p>One endpoint, because there is only one live figure on this site. Press the button and your
+    browser calls it — what appears below is what came back just now, not a sample.</p>
+  <table class="tbl">
+    <thead><tr><th>Endpoint</th><th>Does</th><th></th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>/api/price</code></td>
+        <td>Spot for BTC, ETH and SOL from a public venue, each with its source and the second
+          it was read. A symbol no venue answers for comes back <code>null</code> with a reason.
+          <span class="res" id="r1"></span></td>
+        <td><button class="try" data-u="/api/price" data-t="r1">Try</button></td>
+      </tr>
+      <tr>
+        <td><code>/api/price?s=SOL</code></td>
+        <td>The same, narrowed to one symbol.
+          <span class="res" id="r2"></span></td>
+        <td><button class="try" data-u="/api/price?s=SOL" data-t="r2">Try</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The simulator on the home page does its arithmetic against whatever this returns. If no
+    venue answers, it refuses the tap and says so, rather than reaching for a number.</p>
+</section>
+
+<section class="sec" id="limits">
+  <p class="eb"><em>07</em> &nbsp;—&nbsp; Limits</p>
+  <h2>What this site cannot show you today.</h2>
+  <ul>
+    <li><b>That any of section 01 happens.</b> No card is issued and no float is deployed. Sections 01 to 05 are a specification, and until an issuer is named and a float address is published they are enforced by nothing but this page.</li>
+    <li><b>An execution price.</b> The simulator prices your sale off a public spot quote. A real sale executes against a book, at a price that includes a spread nobody can know in advance, which is why the spread line on the receipt is a dash.</li>
+    <li><b>The float's size.</b> A dash in section 00. When there is a float there will be an address, and you will be able to read its balance without asking us.</li>
+    <li><b>Tokenised equities.</b> The refund case in section 05 is written for them and they are the reason this product is interesting, but no venue quotes them to this site, so the simulator does not offer them. A price we cannot read is a price we will not print.</li>
+    <li><b>Anything about the issuer.</b> Not named, because nothing is signed. When one is, it goes here with the licence it holds.</li>
+  </ul>
+  <div class="note"><b>Note 4</b>The token does not exist yet either. When it does, the address
+    appears on this site and in the pinned post at the same moment, and anyone posting one before
+    that is scamming you.</div>
+</section>
+
+<section class="sec" id="words">
+  <p class="eb"><em>08</em> &nbsp;—&nbsp; Vocabulary</p>
+  <h2>Six words used precisely on this site.</h2>
+  <table class="tbl">
+    <thead><tr><th>Word</th><th>Means, here</th></tr></thead>
+    <tbody>
+      <tr><td>Float</td><td>TAP's own capital, used to front an authorisation and repaid by your sale seconds later. Not a deposit, not your balance, not a pool anyone else funds.</td></tr>
+      <tr><td>Band</td><td>The price move between 01.3 and 01.5 that TAP absorbs instead of reversing over.</td></tr>
+      <tr><td>Ceiling</td><td>The largest single purchase the float will front, checked before any capital moves.</td></tr>
+      <tr><td>Slice</td><td>Exactly the units of one asset needed for one purchase plus its fee. Never rounded up.</td></tr>
+      <tr><td>Reversal</td><td>The authorisation is undone and nothing is sold. Costs a checkout, not a position.</td></tr>
+      <tr><td>Receipt</td><td>The per-transaction record of asset, units, price, spread, fee and amount paid. If TAP stops publishing it, the rest of this document is worthless.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</div>
+
+<script>
+/* the same range as the home page, quieter */
+(function(){
+  const c=document.getElementById('range'),x=c&&c.getContext('2d');if(!x)return;
+  let W=0,H=0,D=1;
+  const L=[{base:.52,amp:.055,col:'#3d4f68',spd:.0022,seed:11,snow:'#7d90a8'},
+           {base:.58,amp:.075,col:'#354557',spd:.0040,seed:29,snow:'#6e829b'},
+           {base:.66,amp:.090,col:'#2a3746',spd:.0068,seed:47,snow:'#5f7288'},
+           {base:.75,amp:.105,col:'#1f2a36',spd:.0105,seed:71,snow:'#4d5f75'},
+           {base:.86,amp:.115,col:'#151d27',spd:.0160,seed:97,snow:'#3b4a5d'}];
+  const ridge=(t,l,i)=>Math.sin((t+i*.9)*.9+l.seed)*.5+Math.sin((t+i*.37)*2.3+l.seed*1.7)*.28
+    +Math.sin((t+i*.13)*5.1+l.seed*2.9)*.14+Math.sin((t+i*.07)*9.7+l.seed*4.3)*.07;
+  function size(){D=Math.min(window.devicePixelRatio||1,1.5);
+    W=c.width=Math.floor(innerWidth*D);H=c.height=Math.floor(innerHeight*D);}
+  function draw(ts){
+    const g=x.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0c1420');g.addColorStop(.42,'#16202e');g.addColorStop(1,'#26364a');
+    x.fillStyle=g;x.fillRect(0,0,W,H);
+    const step=Math.max(6,Math.floor(W/170));
+    for(let i=0;i<L.length;i++){
+      const l=L[i],off=ts*l.spd*.001,pts=[];
+      for(let px=-step;px<=W+step;px+=step)pts.push([px,H*l.base-H*l.amp*ridge(px/W*3.1+off,l,i)]);
+      x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
+      for(let k=1;k<pts.length;k++){const p=pts[k-1],q=pts[k];
+        x.quadraticCurveTo(p[0],p[1],(p[0]+q[0])/2,(p[1]+q[1])/2);}
+      x.lineTo(W,H);x.lineTo(0,H);x.closePath();x.fillStyle=l.col;x.fill();
+      x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
+      for(let k=1;k<pts.length;k++){const p=pts[k-1],q=pts[k];
+        x.quadraticCurveTo(p[0],p[1],(p[0]+q[0])/2,(p[1]+q[1])/2);}
+      x.strokeStyle=l.snow;x.lineWidth=1.6*D;x.globalAlpha=.5;x.stroke();x.globalAlpha=1;
+    }
+  }
+  const still=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  size();draw(0);if(still)return;
+  let last=0,run=true;
+  function loop(ts){if(!run)return;if(ts-last>52){last=ts;draw(ts);}requestAnimationFrame(loop);}
+  requestAnimationFrame(loop);
+  addEventListener('resize',function(){size();draw(performance.now());},{passive:true});
+  document.addEventListener('visibilitychange',function(){run=!document.hidden;
+    if(run){last=0;requestAnimationFrame(loop);}});
+})();
+
+document.querySelectorAll('.try').forEach(function(b){
+  b.addEventListener('click',async function(){
+    const out=document.getElementById(b.dataset.t);
+    b.disabled=true;const was=b.textContent;b.textContent='…';
+    out.textContent='calling '+b.dataset.u+' …';
+    const t0=performance.now();
+    try{
+      const r=await fetch(b.dataset.u,{cache:'no-store'});
+      const t=await r.text();const ms=Math.round(performance.now()-t0);
+      out.textContent=r.status+' · '+ms+'ms · '+t.slice(0,260)+(t.length>260?'…':'');
+    }catch(e){out.textContent='the request failed from this browser: '+(e&&e.message||e);}
+    b.disabled=false;b.textContent=was;
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TAP</title>
+<meta name="description" content="A card funded by the crypto you already hold. One tap, one sale, one receipt — and the receipt says what it cost you.">
+<meta property="og:title" content="TAP">
+<meta property="og:description" content="Pay anything online with crypto. Just tap.">
+<meta property="og:image" content="/assets/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="/assets/favicon-180.png">
+<style>
+@font-face{font-family:Inter;src:url(/assets/inter.woff2) format('woff2-variations');font-weight:100 900;font-display:swap}
+@font-face{font-family:Mono;src:url(/assets/mono.woff2) format('woff2');font-weight:400 600;font-display:swap}
+
+:root{
+  --ground:#0b1119; --text:#b7c4d6; --head:#fff; --dim:#71809a;
+  --line:rgba(255,255,255,.115); --hair:rgba(255,255,255,.062);
+  --panel:rgba(255,255,255,.035);
+  --ice:#9ed3ea; --warn:#e8a98c;
+  --rail:186px;
+}
+*{box-sizing:border-box}
+html{overflow-x:hidden;scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;overflow-x:clip;background:var(--ground);color:var(--text);
+  font:400 14.5px/1.74 Inter,system-ui,-apple-system,sans-serif;letter-spacing:-.003em;
+  -webkit-font-smoothing:antialiased}
+#range,#snow{position:fixed;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+#range{z-index:-3}
+#snow{z-index:-2}
+.vig{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(120% 80% at 50% 8%,rgba(11,17,25,0) 30%,rgba(11,17,25,.72) 78%,rgba(11,17,25,.94) 100%)}
+
+h1,h2,h3{color:var(--head);margin:0;font-weight:800;letter-spacing:-.032em}
+h1{font-size:clamp(38px,6.6vw,66px);line-height:1.02;letter-spacing:-.045em}
+h2{font-size:clamp(22px,2.9vw,30px);line-height:1.2;font-weight:750}
+h3{font-size:15.5px;font-weight:700;letter-spacing:-.018em;color:var(--head)}
+p{margin:0 0 15px;max-width:66ch}
+a{color:var(--head)}
+b,strong{color:var(--head);font-weight:650}
+.mono{font-family:Mono,ui-monospace,Menlo,monospace}
+.dim{color:var(--dim)}
+.ice{color:var(--ice)}
+[hidden]{display:none!important}
+
+/* ---------------- shell: a rail and a column ---------------- */
+.shell{max-width:1100px;margin:0 auto;padding:0 34px 90px;
+  display:grid;grid-template-columns:var(--rail) minmax(0,1fr);gap:48px;align-items:start}
+.col{min-width:0;max-width:760px}
+
+/* ---------------- the clock rail ---------------- */
+.railwrap{position:sticky;top:0;padding:120px 0 40px;min-width:0}
+.rgrp{margin-bottom:26px}
+.rgrp h4{font-family:Mono,monospace;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 12px;font-weight:500}
+.ritem{display:grid;grid-template-columns:13px minmax(0,1fr);gap:11px;align-items:start;
+  text-decoration:none;color:var(--dim);padding:6px 0;position:relative}
+.ritem .pip{position:relative;width:13px;height:13px;margin-top:5px}
+.ritem .pip::before{content:"";position:absolute;left:4px;top:4px;width:5px;height:5px;
+  border-radius:50%;background:currentColor;opacity:.5;transition:all .25s}
+.ritem .pip::after{content:"";position:absolute;left:6px;top:13px;width:1px;height:100%;
+  background:var(--hair)}
+.ritem:last-child .pip::after{display:none}
+.ritem .t{font-family:Mono,monospace;font-size:10px;letter-spacing:.06em;display:block;
+  color:var(--dim);transition:color .25s}
+.ritem .n{font-size:12.5px;font-weight:600;line-height:1.35;transition:color .25s}
+.ritem:hover .n{color:var(--head)}
+.ritem.on{color:var(--ice)}
+.ritem.on .n{color:var(--head)}
+.ritem.on .t{color:var(--ice)}
+.ritem.on .pip::before{opacity:1;box-shadow:0 0 0 4px rgba(158,211,234,.16);
+  transform:scale(1.3);background:var(--ice)}
+.ritem.fired .pip::before{background:var(--ice);opacity:.85}
+
+/* ---------------- hero ---------------- */
+.hero{padding:120px 0 34px}
+.brand{display:flex;align-items:center;gap:15px;margin-bottom:22px}
+.brand img{width:52px;height:52px;display:block}
+.brand span{font:800 30px Inter,sans-serif;letter-spacing:-.05em;color:var(--head)}
+.kick{font-family:Mono,monospace;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 18px}
+
+/* ---------------- the terminal ---------------- */
+.term{border:1px solid var(--line);border-radius:16px;background:rgba(9,14,21,.72);
+  backdrop-filter:blur(8px);margin-top:34px;overflow:hidden}
+.term .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:11px 18px;border-bottom:1px solid var(--hair);
+  font-family:Mono,monospace;font-size:10px;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--dim)}
+.term .bar .clk{color:var(--ice);letter-spacing:.09em;text-transform:none}
+.term .body{padding:20px 18px}
+.fld{display:grid;grid-template-columns:minmax(0,108px) minmax(0,1fr);gap:12px;
+  align-items:center;padding:10px 0;border-bottom:1px solid var(--hair)}
+.fld label{font-family:Mono,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim)}
+.fld .v{color:var(--head);font-size:14px}
+.inp{width:100%;max-width:220px;padding:10px 13px;border-radius:9px;border:1px solid var(--line);
+  background:rgba(255,255,255,.04);color:var(--head);font:600 15px Mono,monospace;outline:none;
+  transition:border-color .16s,box-shadow .16s}
+.inp::placeholder{color:#55627a;font-weight:400}
+.inp:focus{border-color:rgba(158,211,234,.6);box-shadow:0 0 0 3px rgba(158,211,234,.12)}
+.assets{display:flex;gap:7px;flex-wrap:wrap}
+.as{border:1px solid var(--line);background:rgba(255,255,255,.03);border-radius:8px;
+  padding:7px 12px;cursor:pointer;color:var(--text);font:600 12px Mono,monospace;
+  letter-spacing:.05em;transition:all .16s;min-width:0}
+.as:hover{border-color:rgba(158,211,234,.45);color:var(--head)}
+.as[aria-pressed=true]{background:rgba(158,211,234,.14);border-color:rgba(158,211,234,.55);
+  color:var(--head)}
+.as i{font-style:normal;display:block;font-size:10px;color:var(--dim);letter-spacing:0;
+  margin-top:2px}
+.as[aria-pressed=true] i{color:var(--ice)}
+.go{margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 28px;
+  border:0;border-radius:10px;cursor:pointer;color:#0b1119;background:var(--head);
+  font:750 13.5px Inter,sans-serif;letter-spacing:-.01em;transition:transform .15s,opacity .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn[disabled]{opacity:.4;cursor:not-allowed;transform:none}
+.btn.q{background:rgba(255,255,255,.07);color:var(--head)}
+.log{margin-top:18px;border-top:1px solid var(--hair);padding-top:14px;
+  font-family:Mono,monospace;font-size:12px;line-height:1.85;min-height:0}
+.log .ln{display:grid;grid-template-columns:62px minmax(0,1fr);gap:12px;
+  opacity:0;transform:translateY(5px);animation:in .32s ease forwards}
+@keyframes in{to{opacity:1;transform:none}}
+.log .ln .ts{color:var(--ice)}
+.log .ln .tx{color:var(--text)}
+.log .ln.bad .tx{color:var(--warn)}
+.log .ln.done .tx{color:var(--head)}
+
+/* ---------------- receipt ---------------- */
+.rcpt{margin-top:18px;border-top:1px dashed rgba(255,255,255,.22);padding-top:16px;
+  font-family:Mono,monospace;font-size:12.5px}
+.rcpt .r{display:flex;justify-content:space-between;gap:16px;padding:5px 0}
+.rcpt .r span{color:var(--dim)}
+.rcpt .r b{color:var(--head);font-weight:600}
+.rcpt .r.s{border-top:1px solid var(--hair);margin-top:7px;padding-top:11px}
+.rcpt .cap{color:var(--dim);font-size:11px;line-height:1.7;margin-top:12px;
+  padding-top:11px;border-top:1px dashed rgba(255,255,255,.16)}
+
+/* ---------------- sections ---------------- */
+.sec{padding:78px 0 0;scroll-margin-top:24px}
+.stamp{font-family:Mono,monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 14px;display:flex;align-items:center;gap:12px}
+.stamp em{font-style:normal;color:var(--ice)}
+.stamp::after{content:"";flex:1;height:1px;background:var(--hair)}
+.lede{font-size:16.5px;line-height:1.62;margin:16px 0 0;max-width:60ch;color:var(--text)}
+
+/* ---------------- float meter ---------------- */
+.meter{margin-top:26px;border:1px solid var(--line);border-radius:14px;padding:18px;
+  background:var(--panel)}
+.meter .top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  font-family:Mono,monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:12px}
+.track{height:12px;border-radius:7px;background:rgba(255,255,255,.07);overflow:hidden;
+  border:1px solid var(--hair)}
+.fill{height:100%;width:0;background:linear-gradient(90deg,rgba(158,211,234,.55),var(--ice));
+  transition:width .4s ease,background .3s}
+.fill.over{background:linear-gradient(90deg,rgba(232,169,140,.55),var(--warn))}
+.meter .note{margin-top:11px;font-size:12.5px;color:var(--dim);max-width:60ch}
+
+/* ---------------- table ---------------- */
+.tbl{width:100%;border-collapse:collapse;margin-top:24px;font-size:14px}
+.tbl th{text-align:left;font-family:Mono,monospace;font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);font-weight:500;padding:0 18px 10px 0;
+  border-bottom:1px solid var(--line)}
+.tbl td{padding:15px 18px 15px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+.tbl td:first-child{color:var(--head);font-weight:650;width:33%}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .num{font-family:Mono,monospace;color:var(--ice);font-size:13.5px}
+
+/* ---------------- misc ---------------- */
+.rule{margin-top:34px;padding:26px 0 0;border-top:1px solid var(--line);
+  font:750 clamp(19px,2.6vw,27px)/1.35 Inter,sans-serif;color:var(--head);
+  letter-spacing:-.03em;max-width:24ch}
+details{border-top:1px solid var(--hair)}
+details:last-of-type{border-bottom:1px solid var(--hair)}
+summary{cursor:pointer;list-style:none;padding:17px 34px 17px 0;position:relative;
+  color:var(--head);font-weight:650;font-size:15px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";position:absolute;right:6px;top:14px;font-size:19px;color:var(--dim);
+  font-weight:400;transition:transform .2s}
+details[open] summary::after{transform:rotate(45deg)}
+details .a{padding:0 0 19px;max-width:66ch}
+details .a p:last-child{margin-bottom:0}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:34px;margin-top:26px}
+.cols ul{margin:0;padding:0;list-style:none}
+.cols li{padding:13px 0;border-top:1px solid var(--hair);font-size:13.5px}
+.cols li b{display:block;margin-bottom:2px}
+.docs{margin-top:44px;padding-top:22px;border-top:1px solid var(--line)}
+.docs a{font-family:Mono,monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ice);text-decoration:none}
+.docs a:hover{color:var(--head)}
+.rv{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.rv.vis{opacity:1;transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+@media(max-width:920px){
+  .shell{grid-template-columns:minmax(0,1fr);gap:0;padding:0 22px 70px}
+  .railwrap{position:sticky;top:0;z-index:4;padding:0;margin:0 -22px 0;
+    background:rgba(11,17,25,.92);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .rgrp{display:flex;gap:0;margin:0;padding:0 14px}
+  .rgrp h4{display:none}
+  .ritem{grid-template-columns:minmax(0,1fr);gap:0;padding:10px 12px;white-space:nowrap}
+  .ritem .pip{display:none}
+  .ritem .t{font-size:9px}
+  .ritem .n{font-size:11.5px}
+  .hero{padding:44px 0 26px}
+  .sec{padding:60px 0 0}
+  .cols{grid-template-columns:minmax(0,1fr);gap:20px}
+  .fld{grid-template-columns:minmax(0,1fr);gap:5px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .rv{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<canvas id="range" aria-hidden="true"></canvas>
+<canvas id="snow" aria-hidden="true"></canvas>
+<div class="vig" aria-hidden="true"></div>
+
+<div class="shell">
+
+<div class="railwrap">
+  <nav id="rail" aria-label="Contents">
+    <div class="rgrp" id="rg1">
+      <h4>The two seconds</h4>
+      <a class="ritem" href="#tap"><span class="pip"></span><span><span class="t">T+0.00s</span><span class="n">The tap</span></span></a>
+      <a class="ritem" href="#auth"><span class="pip"></span><span><span class="t">T+0.35s</span><span class="n">The authorisation</span></span></a>
+      <a class="ritem" href="#float"><span class="pip"></span><span><span class="t">T+0.40s</span><span class="n">The float</span></span></a>
+      <a class="ritem" href="#sale"><span class="pip"></span><span><span class="t">T+1.20s</span><span class="n">The sale</span></span></a>
+      <a class="ritem" href="#settle"><span class="pip"></span><span><span class="t">T+1.90s</span><span class="n">The settlement</span></span></a>
+      <a class="ritem" href="#receipt"><span class="pip"></span><span><span class="t">T+2.00s</span><span class="n">The receipt</span></span></a>
+    </div>
+    <div class="rgrp" id="rg2">
+      <h4>After</h4>
+      <a class="ritem" href="#pay"><span class="pip"></span><span><span class="n">What you pay</span></span></a>
+      <a class="ritem" href="#wrong"><span class="pip"></span><span><span class="n">When it goes wrong</span></span></a>
+      <a class="ritem" href="#identity"><span class="pip"></span><span><span class="n">About identity</span></span></a>
+      <a class="ritem" href="#notbuilt"><span class="pip"></span><span><span class="n">Not built yet</span></span></a>
+      <a class="ritem" href="#card"><span class="pip"></span><span><span class="n">Why a card</span></span></a>
+      <a class="ritem" href="#faq"><span class="pip"></span><span><span class="n">Questions</span></span></a>
+    </div>
+  </nav>
+</div>
+
+<main class="col">
+
+<section class="hero">
+  <div class="brand rv"><img src="/assets/mark.png" alt=""><span>TAP</span></div>
+  <p class="kick rv">One tap · one sale · one receipt</p>
+  <h1 class="rv">Pay anything online<br>with crypto.</h1>
+
+  <div class="term rv" id="terminal">
+    <div class="bar">
+      <span>Terminal · authorisation</span>
+      <span class="clk mono" id="clk">T+0.000s</span>
+    </div>
+    <div class="body">
+      <div class="fld">
+        <label for="amt">Purchase</label>
+        <div><input class="inp" id="amt" type="text" inputmode="decimal" autocomplete="off"
+             placeholder="amount in USD" aria-label="Purchase amount in US dollars"></div>
+      </div>
+      <div class="fld">
+        <label>Fund from</label>
+        <div class="assets" id="assets" role="group" aria-label="Asset to sell"></div>
+      </div>
+      <div class="fld" style="border-bottom:0">
+        <label>Merchant</label>
+        <div class="v">a shop that has never accepted crypto <span class="dim">— it sees a card</span></div>
+      </div>
+      <div class="go">
+        <button class="btn" id="tapbtn">Tap →</button>
+        <button class="btn q" id="reset" hidden>Again</button>
+        <span class="dim mono" style="font-size:11px" id="hint"></span>
+      </div>
+      <div class="log" id="log" hidden></div>
+      <div class="rcpt" id="rcpt" hidden></div>
+      <p class="sr" aria-live="polite" id="live"></p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="tap">
+  <p class="stamp rv"><em>T+0.00s</em> The tap</p>
+  <h2 class="rv">There is a gap between holding and spending, and everybody here has learned to live with it.</h2>
+  <p class="lede rv">Your money is onchain. It sits there, it does its job, and the moment you
+    want to buy something with it you are thrown back into 2017: move it to an exchange, sell
+    into fiat, wait for a bank rail that keeps office hours, and arrive at the checkout two days
+    later having exited a position you never wanted to exit.</p>
+  <p class="rv">So people do the obvious thing. They keep a separate pot of ordinary money for
+    ordinary life, and the onchain money never touches anything real. TAP closes that gap with
+    the most boring object in finance. A card.</p>
+  <p class="rv">You tap it. Everything below happens underneath, in about two seconds, and the
+    merchant sees a normal card payment — because that is what it is.</p>
+</section>
+
+<section class="sec" id="auth">
+  <p class="stamp rv"><em>T+0.35s</em> The authorisation</p>
+  <h2 class="rv">Two seconds is not a design target. It is the whole constraint.</h2>
+  <p class="lede rv">A terminal asks the card's issuer for an authorisation and gives up if the
+    answer takes much longer than two seconds. Selling an asset and settling it does not happen
+    in two seconds. Those two facts do not fit together, and every product that claims to "pay
+    merchants directly from your crypto" is quietly resolving them somehow without saying how.</p>
+
+  <div class="meter rv">
+    <div class="top">
+      <span>Per-transaction ceiling</span>
+      <span class="mono" id="ceilTxt">$2,000</span>
+    </div>
+    <div class="track"><div class="fill" id="ceilFill"></div></div>
+    <p class="note" id="ceilNote">Type a purchase in the terminal above and this fills. Over the
+      ceiling, the authorisation is refused here — before any capital is committed — rather than
+      halfway through.</p>
+  </div>
+</section>
+
+<section class="sec" id="float">
+  <p class="stamp rv"><em>T+0.40s</em> The float</p>
+  <h2 class="rv">Our own capital fronts your purchase, and that has consequences worth stating.</h2>
+  <p class="lede rv">TAP resolves the two-second problem with a float: we authorise from our own
+    capital, and your sale repays it seconds later. That is the only mechanism that makes a card
+    work. Everything else on this page is downstream of it.</p>
+
+  <table class="tbl rv">
+    <thead><tr><th>What the float means</th><th>What follows from it</th></tr></thead>
+    <tbody>
+      <tr><td>TAP briefly carries your purchase</td><td>For a few seconds we are exposed to the price of the asset you are about to sell. Inside the published band we absorb the move. Outside it, the authorisation reverses and you are told why at the till, not later.</td></tr>
+      <tr><td>The float has a size</td><td>A float is not infinite, and a product that pretends otherwise is lying about its own balance sheet. The ceiling is published and enforced before capital is committed, not discovered by you at a checkout.</td></tr>
+      <tr><td>TAP takes a real risk on every tap</td><td>That is what the fee is for. Not for "access", not for "the agent" — for carrying two seconds of price exposure so you do not have to pre-convert.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="meter rv">
+    <div class="top"><span>The band</span><span class="mono ice">± 0.75%</span></div>
+    <p class="note" style="margin-top:0">If the asset moves against us by less than this between
+      authorisation and settlement, TAP eats it. More than this and the transaction reverses. The
+      number is here rather than in a support article because it is the one number that decides
+      whether a tap you just made is going to hold.</p>
+  </div>
+</section>
+
+<section class="sec" id="sale">
+  <p class="stamp rv"><em>T+1.20s</em> The sale</p>
+  <h2 class="rv">Only the slice this purchase needs.</h2>
+  <p class="lede rv">Using the priority order you set, TAP sells the amount of one asset needed
+    to cover this purchase plus the published fee. Not a round number, not a buffer, not a
+    top-up of a spending balance you then have to manage.</p>
+  <p class="rv">Everything you did not spend stays exactly where it was — still invested, still
+    yours, still exposed to whatever you bought it for. That is the entire reason to hold a card
+    like this instead of moving money to a spending account once a month.</p>
+  <p class="rv">The units sold in the terminal above are computed from a live spot price, read
+    from a public venue when this page loaded. The venue and the second it was read are printed
+    on the receipt, because a number without a source is decoration.</p>
+</section>
+
+<section class="sec" id="settle">
+  <p class="stamp rv"><em>T+1.90s</em> The settlement</p>
+  <h2 class="rv">The proceeds close the position the float opened.</h2>
+  <p class="lede rv">The sale settles back into TAP's float, closing the exposure taken at
+    T+0.40s. From your side nothing has happened except that a card worked. From ours, a
+    position was opened and closed inside two seconds.</p>
+  <p class="rv">The merchant is paid on the card rails, on the card rails' own schedule, exactly
+    as they would be by any other card. They never learn that anything was sold, and they never
+    have to do anything differently — which is the only reason this can work at a shop that has
+    no interest in crypto whatsoever.</p>
+</section>
+
+<section class="sec" id="receipt">
+  <p class="stamp rv"><em>T+2.00s</em> The receipt</p>
+  <h2 class="rv">Which asset, how much of it, at what price, and what we charged.</h2>
+  <p class="lede rv">Per transaction, every time. This is the part of the product that is easy
+    to leave out and impossible to add back once people have stopped expecting it.</p>
+  <p class="rv">Run a tap in the terminal at the top of this page and the receipt it prints is
+    the real format — the same lines, the same order, with a dash wherever a figure does not
+    exist yet rather than a plausible-looking stand-in.</p>
+  <div class="rule rv">One tap, one sale, one receipt — and the receipt says what it cost you.</div>
+</section>
+
+<section class="sec" id="pay">
+  <p class="stamp rv">What you pay</p>
+  <h2 class="rv">Three things, itemised on every receipt.</h2>
+  <table class="tbl rv">
+    <thead><tr><th>Charge</th><th>Who sets it</th></tr></thead>
+    <tbody>
+      <tr><td>TAP's fee <span class="num">0.90%</span></td><td>Us. Published on the card's settings page before you ever tap it, and on the receipt afterwards so you can check we charged what we said.</td></tr>
+      <tr><td>The spread</td><td>The market, at the moment of sale. Not ours, not marked up, and not knowable in advance — which is why the simulator prints a dash there instead of a number.</td></tr>
+      <tr><td>FX</td><td>The card network, where the merchant charges in a currency other than the one settled.</td></tr>
+    </tbody>
+  </table>
+  <p class="rv" style="margin-top:22px">No monthly fee. No minimum balance. No tier that unlocks
+    a better rate for people who already have more.</p>
+</section>
+
+<section class="sec" id="wrong">
+  <p class="stamp rv">When it goes wrong</p>
+  <h2 class="rv">The failure cases, in the same size type as the happy path.</h2>
+  <p class="lede rv">Every product in this category publishes the two seconds where everything
+    works. You find out what something actually is from the other list.</p>
+  <table class="tbl rv">
+    <thead><tr><th>What happens</th><th>What TAP does</th></tr></thead>
+    <tbody>
+      <tr><td>The price moves between authorisation and settlement</td><td>Inside ±0.75%, TAP absorbs it. Outside it, the transaction reverses and you are told at the till.</td></tr>
+      <tr><td>Your balance is not enough by the time the sale runs</td><td>The authorisation is declined before the float is committed, not after. A decline is annoying; a half-settled purchase is much worse.</td></tr>
+      <tr><td>The merchant refunds you</td><td>This is the one nobody mentions. A refund arrives as stablecoin, not as the asset you sold. Sell tokenised NVDA on Tuesday, get refunded on Friday, and you get dollars back — not your NVDA. If it moved in between, that difference is real and it is yours. We will not pretend a refund is a time machine.</td></tr>
+      <tr><td>The network is down at the terminal</td><td>The tap fails. Nothing is sold. This is correct behaviour and the one case where doing nothing is the feature.</td></tr>
+      <tr><td>TAP's float is unavailable</td><td>The card declines, across the board, and the status page says so. It does not silently fall back to something worse.</td></tr>
+      <tr><td>You tap for more than the ceiling</td><td>Refused at T+0.35s, with the ceiling and your amount both shown. Try it in the terminal above.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="sec" id="identity">
+  <p class="stamp rv">About identity</p>
+  <h2 class="rv">There is an identity step, it is the issuer's, and we would rather say so now.</h2>
+  <p class="lede rv">A card has an issuer. An issuer has regulators, and those regulators have
+    rules about who can be given a payment instrument. That is true of every card that has ever
+    worked at a real checkout, including the ones marketed as requiring nothing.</p>
+  <p class="rv">So TAP will not tell you there is no identity step. There is one, and we would
+    rather you knew before you moved money than after.</p>
+  <p class="rv">What we can tell you is what we do with it: TAP does not sell your transaction
+    history, does not build a profile on your spending to market back to you, and does not share
+    what you bought with anyone who is not legally owed it.</p>
+</section>
+
+<section class="sec" id="notbuilt">
+  <p class="stamp rv">Not built yet</p>
+  <h2 class="rv">Nothing is live.</h2>
+  <p class="lede rv">No card has been issued, no float has been deployed, and no purchase has
+    settled.</p>
+  <p class="rv">You will not find a counter on this page reading zero next to the words
+    <i>settled onchain</i>, because three zeros under a heading called <i>By the numbers</i> is a
+    dashboard pretending to be a measurement. When something has settled there will be a number,
+    and it will be a real one. You will not find a quote from a "Beta Tester" either — when a
+    person we can name has used this, we will name them.</p>
+  <p class="rv">There is no token either. When there is, the address appears on this page and in
+    the pinned post at the same moment — anyone posting one before that is scamming you.</p>
+  <div class="cols rv">
+    <div>
+      <h3>Working on this page</h3>
+      <ul>
+        <li><b>The spot prices</b>Read live from a public venue through this site's own endpoint, with the venue and the timestamp on the receipt.</li>
+        <li><b>The simulator</b>Real arithmetic on the amount you typed and the price that was read — including the decline path when you go over the ceiling.</li>
+        <li><b>The published numbers</b>The fee, the band and the ceiling are written down here before launch so they can be held against whatever ships.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Not working, because it does not exist</h3>
+      <ul>
+        <li><b>The card</b>Not issued. No BIN, no issuer named, no terminal has ever seen one.</li>
+        <li><b>The float</b>Not deployed. The ceiling above is the size the first float will publish, not a balance anyone can check.</li>
+        <li><b>Any settlement at all</b>Zero purchases have settled, because there is nothing to settle with. That sentence is the honest version of a counter reading 0.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="card">
+  <p class="stamp rv">Why a card</p>
+  <h2 class="rv">The obvious version of this is a chat box. It demos beautifully.</h2>
+  <p class="lede rv">Tell an agent what you want, it finds it and buys it. It also asks you to
+    learn a new way to buy things, to trust a model with your shopping, and to accept that the
+    thing it found is the thing you wanted. Every one of those is a reason not to use it on a
+    Tuesday afternoon.</p>
+  <p class="rv">A card asks you to learn nothing. You already know how to tap. You already trust
+    the checkout. The only thing that changes is where the money came from, and that is the only
+    thing that should be changing.</p>
+  <div class="rule rv">They describe what an agent will do. We publish what it spent.</div>
+</section>
+
+<section class="sec" id="faq">
+  <p class="stamp rv">Questions</p>
+  <h2 class="rv">Starting with the one that is least comfortable.</h2>
+  <div class="rv" style="margin-top:24px">
+    <details>
+      <summary>So TAP is lending me money for two seconds?</summary>
+      <div class="a"><p>Functionally, for those two seconds, TAP's capital is what the merchant
+        is paid from — and your sale repays it immediately afterwards. We say "float" rather than
+        anything grander because that is what it is. It also means TAP carries real risk on every
+        tap, which is the honest answer to "why is there a fee at all".</p></div>
+    </details>
+    <details>
+      <summary>What if the price moves in those two seconds?</summary>
+      <div class="a"><p>Inside ±0.75% we absorb it. Outside it the authorisation reverses and you
+        are told at the till rather than finding out from a statement. The band is published
+        because it is the number that decides whether a tap you just made is going to hold.</p></div>
+    </details>
+    <details>
+      <summary>Why is there a per-transaction ceiling?</summary>
+      <div class="a"><p>Because the float has a size and pretending otherwise would be lying
+        about our own balance sheet. The ceiling is enforced at T+0.35s, before any capital is
+        committed. Put a number over it into the terminal at the top of this page and you will
+        see exactly the refusal a real card would give you.</p></div>
+    </details>
+    <details>
+      <summary>Which assets can fund a tap?</summary>
+      <div class="a"><p>The simulator prices BTC, ETH and SOL because those are the three a
+        public venue will quote to this site right now. The product is meant to cover tokenised
+        equities too, and the refund case in <i>When it goes wrong</i> is written for them —
+        but a price we cannot read is a price we will not print.</p></div>
+    </details>
+    <details>
+      <summary>Does the merchant know?</summary>
+      <div class="a"><p>No, and that is the point. They see a card payment on the same rails as
+        every other card payment, settled on the same schedule, with nothing to integrate and
+        nothing to opt into. A shop with no interest in crypto is exactly the shop this has to
+        work at.</p></div>
+    </details>
+    <details>
+      <summary>Is there really an identity step?</summary>
+      <div class="a"><p>Yes. Every card that works at a real checkout has one, including the ones
+        marketed as requiring nothing. Ours is the issuer's. Section <i>About identity</i> says
+        what we do and do not do with it.</p></div>
+    </details>
+    <details>
+      <summary>When is the token?</summary>
+      <div class="a"><p>There is no token yet. When there is, the address appears on this page
+        and in the pinned post at the same moment. Anyone posting one before that is scamming
+        you.</p></div>
+    </details>
+  </div>
+  <p class="docs"><a href="/docs.html">The settlement spec, in full →</a></p>
+</section>
+
+</main>
+</div>
+
+<script>
+const CONFIG={ca:'',x:'',pool:'',chart:''};
+const FEE=0.009, BAND=0.0075, CEIL=2000;
+
+/* ---------- the range: layered ridges, each drifting at its own rate ---------- */
+(function(){
+  const c=document.getElementById('range'),x=c&&c.getContext('2d');
+  if(!x)return;
+  let W=0,H=0,D=1;
+  // far -> near. Nearer layers are darker, taller and move faster; that difference
+  // IS the depth. Give them all one speed and the whole range reads as wallpaper.
+  const L=[
+    {base:.52,amp:.055,col:'#3d4f68',spd:.0022,seed:11,snow:'#7d90a8'},
+    {base:.58,amp:.075,col:'#354557',spd:.0040,seed:29,snow:'#6e829b'},
+    {base:.66,amp:.090,col:'#2a3746',spd:.0068,seed:47,snow:'#5f7288'},
+    {base:.75,amp:.105,col:'#1f2a36',spd:.0105,seed:71,snow:'#4d5f75'},
+    {base:.86,amp:.115,col:'#151d27',spd:.0160,seed:97,snow:'#3b4a5d'}
+  ];
+  function ridge(t,l,i){
+    const s=l.seed;
+    return Math.sin((t+i*0.9)*0.9+s)*0.5+Math.sin((t+i*0.37)*2.3+s*1.7)*0.28
+          +Math.sin((t+i*0.13)*5.1+s*2.9)*0.14+Math.sin((t+i*0.07)*9.7+s*4.3)*0.07;
+  }
+  function size(){D=Math.min(window.devicePixelRatio||1,1.5);
+    W=c.width=Math.floor(innerWidth*D);H=c.height=Math.floor(innerHeight*D);}
+  function draw(ts){
+    const g=x.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0c1420');g.addColorStop(.42,'#16202e');g.addColorStop(1,'#26364a');
+    x.fillStyle=g;x.fillRect(0,0,W,H);
+    const step=Math.max(6,Math.floor(W/170));
+    for(let i=0;i<L.length;i++){
+      const l=L[i],off=ts*l.spd*0.001;
+      const pts=[];
+      for(let px=-step;px<=W+step;px+=step){
+        const u=px/W*3.1+off;
+        pts.push([px,H*l.base-H*l.amp*ridge(u,l,i)]);
+      }
+      x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
+      for(let k=1;k<pts.length;k++){
+        const p=pts[k-1],q=pts[k];
+        x.quadraticCurveTo(p[0],p[1],(p[0]+q[0])/2,(p[1]+q[1])/2);
+      }
+      x.lineTo(W,H);x.lineTo(0,H);x.closePath();
+      x.fillStyle=l.col;x.fill();
+      // a pale crest line reads as snow without drawing snow
+      x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
+      for(let k=1;k<pts.length;k++){
+        const p=pts[k-1],q=pts[k];
+        x.quadraticCurveTo(p[0],p[1],(p[0]+q[0])/2,(p[1]+q[1])/2);
+      }
+      x.strokeStyle=l.snow;x.lineWidth=1.6*D;x.globalAlpha=.55;x.stroke();x.globalAlpha=1;
+    }
+  }
+  const still=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  size();draw(0);
+  if(still)return;
+  let last=0,run=true;
+  function loop(ts){if(!run)return;if(ts-last>48){last=ts;draw(ts);}requestAnimationFrame(loop);}
+  requestAnimationFrame(loop);
+  addEventListener('resize',function(){size();draw(performance.now());},{passive:true});
+  document.addEventListener('visibilitychange',function(){run=!document.hidden;
+    if(run){last=0;requestAnimationFrame(loop);}});
+})();
+
+/* ---------- snow ---------- */
+(function(){
+  const c=document.getElementById('snow'),x=c&&c.getContext('2d');
+  if(!x||matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  let W=0,H=0,D=1,P=[];
+  function flake(y){
+    const d=0.35+Math.random()*0.65;            // depth: size, speed and alpha all follow it
+    return {x:Math.random()*W,y:y,r:d*1.8*D,v:(9+d*26)*D/60,
+      sw:(10+Math.random()*26)*D,f:0.0005+Math.random()*0.0012,
+      p:Math.random()*6.283,a:0.10+d*0.38};
+  }
+  function size(){D=Math.min(window.devicePixelRatio||1,2);
+    W=c.width=Math.floor(innerWidth*D);H=c.height=Math.floor(innerHeight*D);
+    const n=Math.round(Math.min(190,Math.max(60,innerWidth*innerHeight/10000)));
+    P=[];for(let i=0;i<n;i++)P.push(flake(Math.random()*H));}
+  let last=0,run=true;
+  function loop(ts){
+    if(!run)return;
+    const dt=Math.min(3,(ts-last)/16.67||1);last=ts;
+    x.clearRect(0,0,W,H);
+    for(let i=0;i<P.length;i++){
+      const p=P[i];p.y+=p.v*dt;
+      if(p.y-p.r>H){P[i]=flake(-8*D);continue;}
+      x.beginPath();x.arc(p.x+Math.sin(ts*p.f+p.p)*p.sw,p.y,p.r,0,6.283);
+      x.fillStyle='rgba(255,255,255,'+p.a+')';x.fill();
+    }
+    requestAnimationFrame(loop);
+  }
+  size();requestAnimationFrame(loop);
+  addEventListener('resize',size,{passive:true});
+  document.addEventListener('visibilitychange',function(){run=!document.hidden;
+    if(run){last=0;requestAnimationFrame(loop);}});
+})();
+
+/* ---------- reveal ---------- */
+(function(){
+  const els=[].slice.call(document.querySelectorAll('.rv'));
+  if(!('IntersectionObserver' in window)){els.forEach(e=>e.classList.add('vis'));return;}
+  const io=new IntersectionObserver(function(en){
+    en.forEach(function(e,i){if(e.isIntersecting){setTimeout(()=>e.target.classList.add('vis'),i*50);io.unobserve(e.target);}});
+  },{rootMargin:'0px 0px -6% 0px',threshold:.05});
+  els.forEach(e=>io.observe(e));
+  function sweep(){const h=innerHeight;
+    els.forEach(e=>{if(e.getBoundingClientRect().top<h*0.94)e.classList.add('vis');});}
+  addEventListener('scroll',sweep,{passive:true});
+  addEventListener('hashchange',()=>setTimeout(sweep,60));
+  setTimeout(sweep,80);
+})();
+
+/* ---------- the rail follows the scroll ---------- */
+(function(){
+  const links=[].slice.call(document.querySelectorAll('.ritem'))
+    .filter(a=>(a.getAttribute('href')||'').charAt(0)==='#');
+  const map=links.map(a=>({a:a,s:document.querySelector(a.getAttribute('href'))})).filter(o=>o.s);
+  function upd(){
+    let best=null;
+    map.forEach(o=>{if(o.s.getBoundingClientRect().top<=innerHeight*0.36)best=o;});
+    map.forEach(o=>o.a.classList.toggle('on',o===best));
+  }
+  addEventListener('scroll',upd,{passive:true});upd();
+})();
+
+/* ---------- prices ---------- */
+const PX={};
+let PXAT=null;
+(function(){
+  const box=document.getElementById('assets');
+  const SY=['BTC','ETH','SOL'];
+  SY.forEach(function(s,i){
+    const b=document.createElement('button');
+    b.type='button';b.className='as';b.dataset.s=s;
+    b.setAttribute('aria-pressed',String(i===0));
+    b.innerHTML=s+'<i data-p="'+s+'">reading…</i>';
+    b.onclick=function(){
+      [].slice.call(box.children).forEach(c=>c.setAttribute('aria-pressed',String(c===b)));
+    };
+    box.appendChild(b);
+  });
+  fetch('/api/price',{cache:'no-store'}).then(r=>r.json()).then(function(d){
+    if(!d||!d.prices)throw 0;
+    PXAT=d.at;
+    SY.forEach(function(s){
+      const el=document.querySelector('[data-p="'+s+'"]');
+      const p=d.prices[s];
+      if(p&&p.usd){PX[s]={usd:p.usd,src:p.source};el.textContent='$'+fmt(p.usd,2);}
+      else{el.textContent='no quote';}
+    });
+  }).catch(function(){
+    SY.forEach(s=>{const el=document.querySelector('[data-p="'+s+'"]');if(el)el.textContent='no quote';});
+  });
+})();
+
+function fmt(n,dp){return n.toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp});}
+function usd(n){return '$'+fmt(n,2);}
+function units(n){return n.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');}
+
+/* ---------- the ceiling meter, wired to the terminal's input ---------- */
+const amtEl=document.getElementById('amt');
+(function(){
+  const fill=document.getElementById('ceilFill'),note=document.getElementById('ceilNote');
+  document.getElementById('ceilTxt').textContent=usd(CEIL).replace('.00','');
+  function upd(){
+    const v=parseFloat(String(amtEl.value).replace(/[^0-9.]/g,''));
+    if(!isFinite(v)||v<=0){fill.style.width='0';fill.classList.remove('over');
+      note.textContent='Type a purchase in the terminal above and this fills. Over the ceiling, '+
+        'the authorisation is refused here — before any capital is committed — rather than halfway through.';
+      return;}
+    const pct=Math.min(100,v/CEIL*100);
+    fill.style.width=pct+'%';
+    fill.classList.toggle('over',v>CEIL);
+    note.textContent=v>CEIL
+      ? usd(v)+' is over the '+usd(CEIL).replace('.00','')+' ceiling by '+usd(v-CEIL)+
+        '. A real card would refuse this at T+0.35s, and so does the terminal above.'
+      : usd(v)+' is '+pct.toFixed(1)+'% of the ceiling. The float can carry it.';
+  }
+  amtEl.addEventListener('input',upd);upd();
+})();
+
+/* ---------- the tap ---------- */
+(function(){
+  const btn=document.getElementById('tapbtn'),again=document.getElementById('reset'),
+        log=document.getElementById('log'),rc=document.getElementById('rcpt'),
+        clk=document.getElementById('clk'),hint=document.getElementById('hint'),
+        live=document.getElementById('live');
+  let timers=[],raf=0,t0=0;
+
+  function clear(){timers.forEach(clearTimeout);timers=[];cancelAnimationFrame(raf);}
+  function line(cls,ts,tx){
+    const d=document.createElement('div');d.className='ln'+(cls?' '+cls:'');
+    d.innerHTML='<span class="ts">'+ts+'</span><span class="tx"></span>';
+    d.querySelector('.tx').textContent=tx;log.appendChild(d);
+  }
+  function runClock(until){
+    function f(){
+      const e=Math.min(until,(performance.now()-t0)/1000);
+      clk.textContent='T+'+e.toFixed(3)+'s';
+      if(e<until)raf=requestAnimationFrame(f);
+    }
+    raf=requestAnimationFrame(f);
+  }
+  function at(ms,fn){timers.push(setTimeout(fn,ms));}
+
+  function run(){
+    clear();
+    const v=parseFloat(String(amtEl.value).replace(/[^0-9.]/g,''));
+    const sel=document.querySelector('.as[aria-pressed=true]');
+    const sym=sel?sel.dataset.s:'BTC';
+    log.hidden=false;rc.hidden=true;log.innerHTML='';rc.innerHTML='';
+    again.hidden=true;hint.textContent='';
+
+    if(!isFinite(v)||v<=0){
+      clk.textContent='T+0.000s';
+      line('bad','—','Enter a purchase amount first. Nothing is sent anywhere.');
+      amtEl.focus();return;
+    }
+    const p=PX[sym];
+    btn.disabled=true;t0=performance.now();
+
+    if(!p){
+      runClock(0.35);
+      at(340,function(){
+        line('bad','T+0.350','No venue quoted '+sym+' to this site, so there is no price to sell at.');
+        line('bad','','The authorisation is refused before the float is committed. A card that '+
+          'guessed a price here would be the worst possible version of this product.');
+        btn.disabled=false;again.hidden=false;clk.textContent='T+0.350s';
+      });
+      return;
+    }
+
+    const fee=Math.round(v*FEE*100)/100;
+    const need=Math.round((v+fee)*100)/100;
+    const sold=need/p.usd;
+
+    runClock(v>CEIL?0.35:2.00);
+    line('','T+0.000','Terminal requests authorisation for '+usd(v)+'.');
+    live.textContent='Authorisation requested';
+
+    if(v>CEIL){
+      at(350,function(){
+        line('bad','T+0.350','Refused. '+usd(v)+' is over the published per-transaction ceiling of '+
+          usd(CEIL).replace('.00','')+'.');
+        line('bad','','No capital was committed and nothing was sold. You are told at the till, '+
+          'which is the whole point of checking the ceiling before the float and not after it.');
+        clk.textContent='T+0.350s';btn.disabled=false;again.hidden=false;
+        live.textContent='Refused: over the ceiling';
+      });
+      return;
+    }
+
+    at(350,()=>line('','T+0.350','Within the '+usd(CEIL).replace('.00','')+' ceiling. Authorising.'));
+    at(400,()=>line('','T+0.400','Float fronts '+usd(need)+'. TAP now carries '+usd(need)+
+      ' of '+sym+' exposure for the next 1.5 seconds.'));
+    at(1200,()=>line('','T+1.200','Selling '+units(sold)+' '+sym+' at '+usd(p.usd)+
+      ' — the slice this purchase needs, and no more.'));
+    at(1900,()=>line('','T+1.900','Proceeds settle. Float repaid, exposure closed.'));
+    at(2000,function(){
+      line('done','T+2.000','Merchant paid '+usd(v)+'. They see a card payment.');
+      clk.textContent='T+2.000s';
+      receipt(v,fee,need,sold,sym,p);
+      btn.disabled=false;again.hidden=false;
+      hint.textContent='nothing was sent anywhere — this ran in your browser';
+      live.textContent='Settled. Receipt printed.';
+    });
+  }
+
+  function receipt(v,fee,need,sold,sym,p){
+    const rows=[
+      ['Purchase',usd(v)],
+      ['TAP fee · 0.90%',usd(fee)],
+      ['Sold',units(sold)+' '+sym],
+      ['Price',usd(p.usd)],
+      ['Spread','—'],
+      ['FX','—'],
+    ];
+    rc.hidden=false;
+    rc.innerHTML=rows.map(r=>'<div class="r"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('')
+      +'<div class="r s"><span>Merchant paid</span><b>'+usd(v)+'</b></div>'
+      +'<div class="cap">Price read from '+p.src+(PXAT?' at '+new Date(PXAT).toUTCString().replace('GMT','UTC'):'')+
+       '. Spread and FX are dashes because nothing has actually sold — a dash means no figure yet, not zero. '+
+       'On a real receipt both are filled in from the venue and the network.</div>';
+  }
+
+  btn.addEventListener('click',run);
+  again.addEventListener('click',function(){
+    clear();log.hidden=true;rc.hidden=true;again.hidden=true;hint.textContent='';
+    clk.textContent='T+0.000s';amtEl.focus();
+  });
+  amtEl.addEventListener('keydown',e=>{if(e.key==='Enter')run();});
+})();
+</script>
+</body>
+</html>
